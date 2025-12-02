@@ -1,10 +1,9 @@
 
-from mqtt_client import MQTTClient
-from bd_handler import BD_handler
-from input_handler import Input_handler
-import queue
-import time
+import threading
 import logging
+import time
+from api.dependencies import init_components, cleanup_components
+from fastapi_server import run_fastapi
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,48 +14,29 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 def main():
-    
-    command_queue = queue.Queue()
-    bd_queue = queue.Queue()
-    
-    stdin_processor = Input_handler(command_queue)
-    bd_handler = BD_handler(bd_queue)
-    stdin_processor.start()
-    bd_handler.start()
-    
-    client = MQTTClient()
-    client.start()
-
-    log.info("Основной поток запущен. Ожидаю команды...")
-    
     try:
-        while True:
-            try:
-                command = command_queue.get(timeout=0.1)
+        init_components()
+        log.info("Компоненты инициализированы")
+        
+        api_thread = threading.Thread(target=run_fastapi, daemon=True)
+        api_thread.start()
+        
+        # Ждем запуска сервера
+        time.sleep(3)
+        try:
+            while True:
+                # Здесь можно добавить мониторинг состояния системы
+                # Например, проверку соединения MQTT
+                time.sleep(5)
                 
-                if command == "print":
-                    bd_queue.put(command)
-                    continue
-                elif command == "QUIT":
-                    log.info("Получена команда выхода")
-                    break
-                
-                client.publish("get")
-                weight_value = client.wait_for_value(timeout=10)
-                bd_command = command + " " + str(weight_value)
-                bd_queue.put(bd_command)
-                
-            except queue.Empty:
-                pass
-                
-    except KeyboardInterrupt:
-        log.info("\nПрервано пользователем")
+        except KeyboardInterrupt:
+            log.info("Получен сигнал прерывания")
+            
+    except Exception as e:
+        log.error(f"Ошибка запуска системы: {e}")
     finally:
-        client.stop()
-        stdin_processor.stop()
-        bd_handler.stop()
-        stdin_processor.join()
-        bd_handler.join()
+        # Очистка ресурсов
+        cleanup_components()
         log.info("Программа завершена")
 
 if __name__ == "__main__":
