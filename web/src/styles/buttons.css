@@ -1,0 +1,27 @@
+.icon-button {
+    width: 45px;
+    height: 45px;
+    border: 1px solid #ebebeb;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+}
+
+.button {
+    height: 45px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 9px;
+    background: #1D9E75;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
