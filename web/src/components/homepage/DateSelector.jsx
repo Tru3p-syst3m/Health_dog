@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
+import { IconSearch } from "../Icons";
 
-export default function DateSelector({ onChange, defaultValue, minYear, maxYear }) {
+export default function DateSelector({ onChange, onLookup, defaultValue, minYear, maxYear }) {
     const [date, setDate] = useState(defaultValue || { day: '', month: '', year: '' });
     const currentYear = new Date().getFullYear();
 
@@ -24,11 +25,14 @@ export default function DateSelector({ onChange, defaultValue, minYear, maxYear 
     return (
         <div style={{ display: 'flex', gap: 8, padding: 10 }}>
             {options.map(({ key, label, arr }) => (
-                <select key={key} value={date[key]} onChange={e => handleChange(key, e.target.value)} style={{ background: "#fff", border: "1px solid #f0f0f0", borderRadius: 12, padding: "14px 18px", fontSize: 19, fontWeight: 700, color: "#111" }}>
+                <select key={key} value={date[key]} onChange={e => handleChange(key, e.target.value)} style={{ background: "#fff", border: "1px solid #f0f0f0", borderRadius: 12, padding: "14px 18px", fontSize: 15, fontWeight: 350, color: "#111", width: 100, height: 50, textAlign: "center" }}>
                     <option value="">{label}</option>
                     {arr.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
             ))}
-        </div>
+            <button onClick={onLookup} title="Найти" className="icon-button" style={{ width: 50, height: 50 }}>
+                <IconSearch />
+            </button>
+        </div >
     );
 };
