@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CATEGORIES, EMPTY_FOOD_FORM } from "../../constants";
 import { createFood, addToFridge, getFoods } from "../../api/foods";
 import { IconX } from "../Icons";
@@ -22,9 +22,14 @@ export default function FoodModal({ food, onClose, onSaved }) {
     const [error, setError] = useState("");
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const skipNextEffect = useRef(false);
 
     useEffect(() => {
-        if (form.name.length < 2) { setSuggestions([]); return; }
+        if (skipNextEffect.current) {
+            skipNextEffect.current = false;
+            return;
+        }
+        if (form.name.length < 1) { setSuggestions([]); return; }
         const t = setTimeout(async () => {
             const all = await getFoods();
             const matches = all.filter(f =>
@@ -37,6 +42,7 @@ export default function FoodModal({ food, onClose, onSaved }) {
     }, [form.name]);
 
     const fillFromSuggestion = (s) => {
+        skipNextEffect.current = true;
         setForm(f => ({
             ...f, name: s.name, category: s.category ?? "",
             calories_per_100g: s.calories_per_100g ?? "",
