@@ -2,9 +2,10 @@ import { useState, useCallback } from "react";
 import StatsPanel from "../components/homepage/StatsPanel";
 import MealModal from "../components/homepage/MealModal";
 import DateSelector from "../components/homepage/DateSelector";
+import { getFoods } from "../api/foods";
 import { createMeal } from "../api/meals";
 export default function HomePage() {
-    const [curentdata, setCurentdata] = useState([]);
+    const [currentdata, setCurrentdata] = useState([]);
     const [selected, setSelected] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -16,7 +17,7 @@ export default function HomePage() {
         setError("");
         try {
             const data = await getFoods();
-            setCurentdata(data);
+            setCurrentdata(data);
         } catch (e) {
             setError(e.message);
         } finally {
@@ -50,7 +51,7 @@ export default function HomePage() {
                             await createMeal({ items: mealItems });
                             setModal(null);
                             showToast("Приём пищи добавлен");
-                            // Здесь можно вызвать reload статистики
+                            lookup();
                         } catch (e) {
                             showToast("Ошибка: " + e.message);
                         }

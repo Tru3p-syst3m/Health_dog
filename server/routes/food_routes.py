@@ -2,14 +2,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
-from config.database import food_db_get_session
+from config.database import get_session
 from models.food_models import Food, FoodCreate, FoodRead, FoodUpdate
 
 router = APIRouter(prefix="/foods", tags=["foods"])
 
 
 @router.post("/", response_model=FoodRead, status_code=201)
-def create_food(food: FoodCreate, session: Session = Depends(food_db_get_session)):
+def create_food(food: FoodCreate, session: Session = Depends(get_session)):
     db_food = Food.model_validate(food)
     session.add(db_food)
     session.commit()
@@ -22,7 +22,7 @@ def list_foods(
     category: Optional[str] = Query(default=None, description="Фильтр по категории"),
     offset: int = 0,
     limit: int = Query(default=20, le=100),
-    session: Session = Depends(food_db_get_session),
+    session: Session = Depends(get_session),
 ):
     query = select(Food)
     if category:
@@ -31,12 +31,12 @@ def list_foods(
     return foods
 
 @router.get("/fridge", response_model=List[FoodRead])
-def get_fridge_items(session: Session = Depends(food_db_get_session)):
+def get_fridge_items(session: Session = Depends(get_session)):
     food = session.exec(select(Food).where(Food.is_in_fridge == True)).all()
     return food
 
 @router.get("/{food_id}", response_model=FoodRead)
-def get_food(food_id: int, session: Session = Depends(food_db_get_session)):
+def get_food(food_id: int, session: Session = Depends(get_session)):
     food = session.get(Food, food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Продукт не найден")
@@ -44,7 +44,7 @@ def get_food(food_id: int, session: Session = Depends(food_db_get_session)):
 
 
 @router.patch("/{food_id}", response_model=FoodRead)
-def update_food(food_id: int, food_update: FoodUpdate, session: Session = Depends(food_db_get_session)):
+def update_food(food_id: int, food_update: FoodUpdate, session: Session = Depends(get_session)):
     food = session.get(Food, food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Продукт не найден")
@@ -57,7 +57,7 @@ def update_food(food_id: int, food_update: FoodUpdate, session: Session = Depend
     return food
 
 @router.patch("/fridge/{food_id}", response_model=FoodRead)
-def add_to_fridge(food_id: int, food_update: FoodUpdate, session: Session = Depends(food_db_get_session)):
+def add_to_fridge(food_id: int, food_update: FoodUpdate, session: Session = Depends(get_session)):
     food = session.get(Food, food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Продукт не найден")
@@ -75,7 +75,7 @@ def add_to_fridge(food_id: int, food_update: FoodUpdate, session: Session = Depe
 
 
 @router.delete("/{food_id}", status_code=204)
-def delete_food(food_id: int, session: Session = Depends(food_db_get_session)):
+def delete_food(food_id: int, session: Session = Depends(get_session)):
     food = session.get(Food, food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Продукт не найден")
@@ -83,7 +83,7 @@ def delete_food(food_id: int, session: Session = Depends(food_db_get_session)):
     session.commit()
 
 @router.delete("/fridge/{food_id}", status_code=204)
-def delete_from_fridge(food_id: int, session: Session = Depends(food_db_get_session)):
+def delete_from_fridge(food_id: int, session: Session = Depends(get_session)):
     food = session.get(Food, food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Продукт не найден")

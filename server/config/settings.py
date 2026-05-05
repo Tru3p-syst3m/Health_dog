@@ -6,6 +6,6 @@ class Settings(BaseSettings):
     APP_NAME: str = "DefaultApp"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
-    FOOD_DATABASE_URL: str = "sqlite:///./food.db"
+    DATABASE_URL: str = "sqlite:///./food.db"
 
 settings = Settings()
