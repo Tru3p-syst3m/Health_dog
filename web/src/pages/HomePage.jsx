@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import StatsPanel from "../components/homepage/StatsPanel";
 import MealModal from "../components/homepage/MealModal";
 import DateSelector from "../components/homepage/DateSelector";
+import { createMeal } from "../api/meals";
 export default function HomePage() {
     const [curentdata, setCurentdata] = useState([]);
     const [selected, setSelected] = useState(null);
@@ -45,11 +46,14 @@ export default function HomePage() {
                 <MealModal
                     onClose={() => setModal(null)}
                     onSaved={async (mealItems) => {
-                        // TODO: вызвать API создания приёма пищи
-                        // await createMeal(mealItems);
-                        setModal(null);
-                        showToast("Приём пищи добавлен");
-                        // опционально: перегрузить статистику или список приёмов
+                        try {
+                            await createMeal({ items: mealItems });
+                            setModal(null);
+                            showToast("Приём пищи добавлен");
+                            // Здесь можно вызвать reload статистики
+                        } catch (e) {
+                            showToast("Ошибка: " + e.message);
+                        }
                     }}
                 />
             )}

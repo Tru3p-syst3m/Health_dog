@@ -2,14 +2,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config.settings import settings
-from config.database import food_db_create
+from config.database import db_create
 from routes.food_routes import router as food_router
+from routes.meal_routes import router as meal_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    food_db_create()
+    db_create()
     yield
 
 
@@ -20,6 +21,7 @@ app = FastAPI(
 )
 
 app.include_router(food_router)
+app.include_router(meal_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
