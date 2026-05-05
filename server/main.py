@@ -3,7 +3,7 @@ from fastapi import FastAPI
 
 from config.settings import settings
 from config.database import food_db_create
-from routers.food_routes import router as food_router
+from routes.food_routes import router as food_router
 from fastapi.middleware.cors import CORSMiddleware
 
 

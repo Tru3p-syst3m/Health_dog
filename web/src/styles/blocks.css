@@ -9,6 +9,16 @@
     flex-shrink: 0;
 }
 
+.homepage_header {
+    font-size: 20px;
+    color: #aaa;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
 .sidebar {
     overflow: hidden;
     display: flex;

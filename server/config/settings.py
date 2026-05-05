@@ -7,5 +7,6 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
     FOOD_DATABASE_URL: str = "sqlite:///./allfood.db"
+    MEAL_LOG_DATABASE_URL: str = "sqlite:///./meallog.db"
 
 settings = Settings()

@@ -40,7 +40,7 @@ export default function App() {
                 </header>
 
                 <main style={{ flex: 1, overflowY: "auto" }}>
-                    {page === "home" && <HomePage onNavigate={setPage} />}
+                    {page === "home" && <HomePage />}
                     {page === "fridge" && <FridgePage />}
                     {page === "foods" && <FoodsPage />}
                 </main>
