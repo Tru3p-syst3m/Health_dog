@@ -65,6 +65,7 @@ def create_meal(payload: MealCreateInput, session: Session = Depends(get_session
         items=meal_items_to_create
     )
     session.add(meal_log)
+    session.add_all(meal_items_to_create)
     session.commit()
     session.refresh(meal_log)
     return meal_log
