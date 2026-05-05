@@ -1,0 +1,148 @@
+import { useState, useEffect } from "react";
+import { getFridge } from "../../api/foods";
+import { IconX, IconPlus, IconTrash } from "../Icons";
+
+export default function MealModal({ onClose, onSaved }) {
+    const [fridgeItems, setFridgeItems] = useState([]);
+    const [rows, setRows] = useState([{ id: "", weight: "", max: 0 }]);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+
+    // Загружаем содержимое холодильника при открытии модалки
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const data = await getFridge();
+                if (mounted) setFridgeItems(data);
+            } catch (e) {
+                if (mounted) setError(e.message);
+            }
+        })();
+        return () => { mounted = false; };
+    }, []);
+
+    const addRow = () => setRows([...rows, { id: "", weight: "", max: 0 }]);
+    const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
+
+    const updateRow = (i, key, val) => {
+        const next = [...rows];
+        next[i][key] = val;
+        if (key === "id") {
+            const item = fridgeItems.find(f => f.id === val);
+            next[i].max = item ? item.weight_g : 0;
+        }
+        setRows(next);
+    };
+
+    const submit = async () => {
+        setError("");
+        const validRows = rows.filter(r => r.id && r.weight);
+
+        if (validRows.length === 0) {
+            setError("Добавь хотя бы один продукт с весом");
+            return;
+        }
+
+        for (const r of validRows) {
+            const w = parseFloat(r.weight);
+            if (isNaN(w) || w <= 0) {
+                setError("Вес должен быть положительным числом");
+                return;
+            }
+            if (w > r.max) {
+                const item = fridgeItems.find(f => f.id === r.id);
+                setError(`Недостаточно "${item?.name}" в холодильнике`);
+                return;
+            }
+        }
+
+        setSaving(true);
+        try {
+            // 📝 Здесь будет вызов API, например: await createMeal(validRows);
+            // Пока передаём данные в родительский компонент
+            onSaved(validRows.map(r => ({
+                fridge_id: r.id,
+                consumed_g: parseFloat(r.weight)
+            })));
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const inputStyle = {
+        width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0",
+        borderRadius: 8, fontSize: 13, outline: "none", background: "#fafafa",
+        color: "#1a1a1a", fontFamily: "inherit"
+    };
+    const labelStyle = {
+        display: "block", fontSize: 11, fontWeight: 600, color: "#888",
+        marginBottom: 4, letterSpacing: "0.06em", textTransform: "uppercase"
+    };
+
+    return (
+        <div onClick={onClose} style={{
+            position: "fixed", inset: 0, background: "#00000030",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100
+        }}>
+            <div onClick={e => e.stopPropagation()} style={{
+                background: "#fff", borderRadius: 16, padding: "28px 28px 24px",
+                width: 480, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 0
+            }}>
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>Новый приём пищи</h2>
+                    <button onClick={onClose} className="icon-button"><IconX /></button>
+                </div>
+
+                {/* Dynamic List */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto" }}>
+                    {rows.map((row, i) => (
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 36px", gap: 10, alignItems: "end" }}>
+                            <div>
+                                <label style={labelStyle}>Продукт</label>
+                                <select style={inputStyle} value={row.id} onChange={e => updateRow(i, "id", e.target.value)}>
+                                    <option value="">— Выберите —</option>
+                                    {fridgeItems.map(f => (
+                                        <option key={f.id} value={f.id}>{f.name} (доступно: {f.weight_g}г)</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Вес (г)</label>
+                                <input style={inputStyle} type="number" min="0" value={row.weight}
+                                    onChange={e => updateRow(i, "weight", e.target.value)} placeholder="50" />
+                            </div>
+                            <div>
+                                <label style={{ ...labelStyle, visibility: "hidden" }}>.</label>
+                                <button type="button" className="icon-button" style={{ width: 36, height: 36, marginBottom: 2 }}
+                                    onClick={() => rows.length > 1 ? removeRow(i) : null} disabled={rows.length <= 1} title="Удалить строку">
+                                    <IconTrash />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <button type="button" onClick={addRow} className="button" style={{ marginTop: 16, width: "100%", justifyContent: "center" }}>
+                    <IconPlus /> Добавить продукт
+                </button>
+
+                {error && <p style={{ color: "#d44", fontSize: 12, margin: "12px 0 0" }}>{error}</p>}
+
+                {/* Actions */}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+                    <button onClick={onClose} style={{
+                        padding: "9px 18px", border: "1px solid #e0e0e0", borderRadius: 8,
+                        background: "none", fontSize: 13, cursor: "pointer", color: "#555"
+                    }}>Отмена</button>
+                    <button onClick={submit} disabled={saving} className="button">
+                        {saving ? "Сохранение..." : "Сохранить"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

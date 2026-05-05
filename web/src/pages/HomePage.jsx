@@ -1,11 +1,14 @@
 import { useState, useCallback } from "react";
 import StatsPanel from "../components/homepage/StatsPanel";
+import MealModal from "../components/homepage/MealModal";
 import DateSelector from "../components/homepage/DateSelector";
 export default function HomePage() {
     const [curentdata, setCurentdata] = useState([]);
     const [selected, setSelected] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [modal, setModal] = useState(null);
+
 
     const lookup = useCallback(async () => {
         setLoading(true);
@@ -35,9 +38,21 @@ export default function HomePage() {
                     defaultValue={today}
                     onChange={setSelected}
                     onLookup={lookup}
+                    onAdd={() => setModal(true)}
                 />
             </div>
-
+            {modal !== null && (
+                <MealModal
+                    onClose={() => setModal(null)}
+                    onSaved={async (mealItems) => {
+                        // TODO: вызвать API создания приёма пищи
+                        // await createMeal(mealItems);
+                        setModal(null);
+                        showToast("Приём пищи добавлен");
+                        // опционально: перегрузить статистику или список приёмов
+                    }}
+                />
+            )}
 
         </div>
     );

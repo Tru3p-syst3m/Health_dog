@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { IconSearch } from "../Icons";
+import { IconSearch, IconPlus } from "../Icons";
 
-export default function DateSelector({ onChange, onLookup, defaultValue, minYear, maxYear }) {
+export default function DateSelector({ onChange, onLookup, onAdd, defaultValue, minYear, maxYear }) {
     const [date, setDate] = useState(defaultValue || { day: '', month: '', year: '' });
     const currentYear = new Date().getFullYear();
 
@@ -32,6 +32,9 @@ export default function DateSelector({ onChange, onLookup, defaultValue, minYear
             ))}
             <button onClick={onLookup} title="Найти" className="icon-button" style={{ width: 50, height: 50 }}>
                 <IconSearch />
+            </button>
+            <button onClick={onAdd} className="button">
+                <IconPlus /> Добавить
             </button>
         </div >
     );
