@@ -1,13 +1,13 @@
-export default function StatsPanel({ count, totalKcal }) {
+export default function StatsPanel({ calories = 0, protein = 0, fat = 0, carbs = 0 }) {
     const items = [
-        { label: "Ккал", value: count },
-        { label: "Белки", value: totalKcal },
-        { label: "Жиры", value: totalKcal },
-        { label: "Углеводы", value: totalKcal },
+        { label: "Ккал", value: Math.round(calories) },
+        { label: "Белки", value: protein.toFixed(1) },
+        { label: "Жиры", value: fat.toFixed(1) },
+        { label: "Углеводы", value: carbs.toFixed(1) },
     ];
 
     return (
-        <div style={{ padding: 10, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, tableLayout: "fixed" }}>
+        <div style={{ padding: 10, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {items.map(({ label, value }) => (
                 <div key={label} style={{
                     background: "#fff", border: "1px solid #f0f0f0",

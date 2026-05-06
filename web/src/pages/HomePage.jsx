@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import StatsPanel from "../components/homepage/StatsPanel";
 import MealModal from "../components/homepage/MealModal";
 import DateSelector from "../components/homepage/DateSelector";
@@ -19,6 +19,16 @@ export default function HomePage() {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const [selectedDate, setSelectedDate] = useState(todayStr);
 
+    const totals = useMemo(() => {
+        if (!meals?.length) return { calories: 0, protein: 0, fat: 0, carbs: 0 };
+        return meals.reduce((acc, m) => ({
+            calories: acc.calories + (m.total_calories || 0),
+            protein: acc.protein + (m.total_protein || 0),
+            fat: acc.fat + (m.total_fat || 0),
+            carbs: acc.carbs + (m.total_carbs || 0),
+        }), { calories: 0, protein: 0, fat: 0, carbs: 0 });
+    }, [meals]);
+
     const showToast = (msg) => {
         setToast(msg);
         setTimeout(() => setToast(""), 2500);
@@ -37,7 +47,7 @@ export default function HomePage() {
         }
     }, []);
 
-    useEffect(() => { loadMeals(todayStr); }, []);
+    useEffect(() => { loadMeals(); }, [loadMeals]);
 
     const toggleExpand = (id) => setExpandedId(prev => prev === id ? null : id);
 
@@ -72,7 +82,12 @@ export default function HomePage() {
         <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
             <h1 className="homepage_header">Статистика за сегодня</h1>
 
-            <StatsPanel count={1200} totalKcal={2500} />
+            <StatsPanel
+                calories={totals.calories}
+                protein={totals.protein}
+                fat={totals.fat}
+                carbs={totals.carbs}
+            />
 
             <DateSelector
                 onChange={(d) => {
