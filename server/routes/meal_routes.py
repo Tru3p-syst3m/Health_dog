@@ -1,9 +1,11 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from datetime import datetime
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session, SQLModel, select
 from config.database import get_session
 from models.food_models import Food
-from models.meal_log_models import MealLog, MealLogItem
+from models.meal_log_models import MealLog, MealLogItem, MealLogItemRead, MealLogRead
+from sqlalchemy.orm import selectinload
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 
@@ -69,3 +71,45 @@ def create_meal(payload: MealCreateInput, session: Session = Depends(get_session
     session.commit()
     session.refresh(meal_log)
     return meal_log
+
+@router.get("/", response_model=List[MealLogRead])
+def list_meals(
+    date: Optional[str] = Query(default=None, description="Фильтр по дате YYYY-MM-DD"),
+    session: Session = Depends(get_session),
+):
+    query = select(MealLog).options(selectinload(MealLog.items)).order_by(MealLog.eaten_at.desc())
+    if date:
+        start = datetime.strptime(date, "%Y-%m-%d")
+        end = start.replace(hour=23, minute=59, second=59)
+        query = query.where(MealLog.eaten_at >= start, MealLog.eaten_at <= end)
+
+    meals = session.exec(query).all()
+
+    food_ids = {item.food_id for meal in meals for item in meal.items}
+    foods_cache = {}
+    if food_ids:
+        foods_cache = {f.id: f.name for f in session.exec(select(Food).where(Food.id.in_(food_ids))).all()}
+
+    result = []
+    for meal in meals:
+        items_read = []
+        for item in meal.items:
+            items_read.append(MealLogItemRead(
+                id=item.id,
+                food_name=foods_cache.get(item.food_id, "Удалённый продукт"),
+                weight_consumed_g=item.weight_consumed_g,
+                calories=item.calories,
+                protein=item.protein,
+                fat=item.fat,
+                carbs=item.carbs
+            ))
+        result.append(MealLogRead(
+            id=meal.id,
+            eaten_at=meal.eaten_at,
+            total_calories=meal.total_calories,
+            total_protein=meal.total_protein,
+            total_fat=meal.total_fat,
+            total_carbs=meal.total_carbs,
+            items=items_read
+        ))
+    return result

@@ -8,7 +8,6 @@ export default function MealModal({ onClose, onSaved }) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    // Загружаем содержимое холодильника при открытии модалки
     useEffect(() => {
         let mounted = true;
         (async () => {
@@ -23,24 +22,41 @@ export default function MealModal({ onClose, onSaved }) {
     }, []);
 
     const addRow = () => setRows([...rows, { id: "", weight: "", max: 0 }]);
-    const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
+
+    const removeRow = (i) => {
+        setRows(rows.filter((_, idx) => idx !== i));
+        if (error.includes("нельзя добавлять дважды")) setError("");
+    };
 
     const updateRow = (i, key, val) => {
         const next = [...rows];
         next[i][key] = val;
         if (key === "id") {
-            const item = fridgeItems.find(f => f.id === val);
+            const idNum = Number(val);
+            const item = fridgeItems.find(f => f.id === idNum);
             next[i].max = item ? item.weight_g : 0;
         }
         setRows(next);
     };
 
+    const getAvailableOptions = (currentIdx) => {
+        const takenIds = rows
+            .map((r, idx) => (idx !== currentIdx && r.id) ? Number(r.id) : null)
+            .filter(Boolean);
+        return fridgeItems.filter(f => !takenIds.includes(f.id));
+    };
+
     const submit = async () => {
         setError("");
         const validRows = rows.filter(r => r.id && r.weight);
-
         if (validRows.length === 0) {
             setError("Добавь хотя бы один продукт с весом");
+            return;
+        }
+
+        const ids = validRows.map(r => Number(r.id));
+        if (new Set(ids).size !== ids.length) {
+            setError("Один и тот же продукт нельзя добавлять дважды");
             return;
         }
 
@@ -59,10 +75,8 @@ export default function MealModal({ onClose, onSaved }) {
 
         setSaving(true);
         try {
-            // 📝 Здесь будет вызов API, например: await createMeal(validRows);
-            // Пока передаём данные в родительский компонент
             onSaved(validRows.map(r => ({
-                fridge_id: r.id,
+                fridge_id: Number(r.id),
                 consumed_g: parseFloat(r.weight)
             })));
         } catch (e) {
@@ -103,9 +117,14 @@ export default function MealModal({ onClose, onSaved }) {
                         <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 36px", gap: 10, alignItems: "end" }}>
                             <div>
                                 <label style={labelStyle}>Продукт</label>
-                                <select style={inputStyle} value={row.id} onChange={e => updateRow(i, "id", e.target.value)}>
+                                <select
+                                    style={inputStyle}
+                                    value={row.id}
+                                    onChange={e => updateRow(i, "id", e.target.value)}
+                                >
                                     <option value="">— Выберите —</option>
-                                    {fridgeItems.map(f => (
+                                    {/* 🆕 Фильтруем уже выбранные продукты */}
+                                    {getAvailableOptions(i).map(f => (
                                         <option key={f.id} value={f.id}>{f.name} (доступно: {f.weight_g}г)</option>
                                     ))}
                                 </select>
@@ -118,7 +137,7 @@ export default function MealModal({ onClose, onSaved }) {
                             <div>
                                 <label style={{ ...labelStyle, visibility: "hidden" }}>.</label>
                                 <button type="button" className="icon-button" style={{ width: 36, height: 36, marginBottom: 2 }}
-                                    onClick={() => rows.length > 1 ? removeRow(i) : null} disabled={rows.length <= 1} title="Удалить строку">
+                                    onClick={() => removeRow(i)} disabled={rows.length <= 1} title="Удалить строку">
                                     <IconTrash />
                                 </button>
                             </div>

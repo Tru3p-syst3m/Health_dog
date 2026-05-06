@@ -27,3 +27,20 @@ class MealLog(SQLModel, table=True):
 
     items: list[MealLogItem] = Relationship(back_populates="meal_log")
     
+class MealLogItemRead(SQLModel):
+    id: int
+    food_name: str
+    weight_consumed_g: float
+    calories: float
+    protein: float
+    fat: float
+    carbs: float
+
+class MealLogRead(SQLModel):
+    id: int
+    eaten_at: datetime
+    total_calories: float
+    total_protein: float
+    total_fat: float
+    total_carbs: float
+    items: list[MealLogItemRead] = []
