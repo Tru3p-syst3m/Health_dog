@@ -1,17 +1,20 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-
 from config.settings import settings
 from config.database import db_create
+from config.mqtt_client import ScalesService
 from routes.food_routes import router as food_router
 from routes.meal_routes import router as meal_router
+from routes.scales_routes import router as scales_router
 from fastapi.middleware.cors import CORSMiddleware
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.scales_service = ScalesService()
+    app.state.scales_service.start()
     db_create()
     yield
+    await app.state.scales_service.stop()
 
 
 app = FastAPI(
@@ -22,6 +25,7 @@ app = FastAPI(
 
 app.include_router(food_router)
 app.include_router(meal_router)
+app.include_router(scales_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
