@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
     app.state.scales_service.start()
     db_create()
     yield
-    await app.state.scales_service.stop()
+    app.state.scales_service.stop()
 
 
 app = FastAPI(
