@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { CATEGORIES, EMPTY_FOOD_FORM } from "../../constants";
-import { createFood, addToFridge, getFoods } from "../../api/foods";
+import { createFood, addToFridge, getFoods, getScalesWeight } from "../../api/foods";
 import { IconX } from "../Icons";
 
 export default function FoodModal({ food, onClose, onSaved }) {
@@ -23,6 +23,7 @@ export default function FoodModal({ food, onClose, onSaved }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const skipNextEffect = useRef(false);
+    const [fetchingWeight, setFetchingWeight] = useState(false);
 
     useEffect(() => {
         if (skipNextEffect.current) {
@@ -52,6 +53,20 @@ export default function FoodModal({ food, onClose, onSaved }) {
             weight_g: ""
         }));
         setShowSuggestions(false); setSuggestions([]);
+    };
+
+    const handleFetchWeight = async () => {
+        setFetchingWeight(true);
+        setError(""); // Сбрасываем старые ошибки
+        try {
+            const data = await getScalesWeight();
+            // API возвращает { weight_g: 123.45, status: "ok" }
+            setForm((f) => ({ ...f, weight_g: data.weight_g.toString() }));
+        } catch (e) {
+            setError(`Ошибка весов: ${e.message}`);
+        } finally {
+            setFetchingWeight(false);
+        }
     };
 
     const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -171,9 +186,26 @@ export default function FoodModal({ food, onClose, onSaved }) {
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div>
-                            <label style={labelStyle}>Вес (г) *</label>
-                            <input style={inputStyle} type="number" value={form.weight_g} onChange={set("weight_g")} placeholder="150" />
+                        <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={labelStyle}>Вес (г) *</label>
+                                <input
+                                    style={inputStyle}
+                                    type="number"
+                                    value={form.weight_g}
+                                    onChange={set("weight_g")}
+                                    placeholder="150"
+                                />
+                            </div>
+                            <button
+                                onClick={handleFetchWeight}
+                                disabled={fetchingWeight}
+                                className="icon-button"
+                                title="Получить вес с весов"
+                                style={{ width: 48, height: 48, padding: 0 }}
+                            >
+                                {fetchingWeight ? "⏳" : "⚖️"}
+                            </button>
                         </div>
                     </div>
                 </div>

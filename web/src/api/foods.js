@@ -17,3 +17,5 @@ export const deleteFood = (id) =>
 
 export const deleteFromFridge = (id) =>
     apiFetch(`/foods/fridge/${id}`, { method: "DELETE" });
+
+export const getScalesWeight = () => apiFetch("/scales/weight");
