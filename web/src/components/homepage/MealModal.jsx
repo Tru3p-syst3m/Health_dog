@@ -112,25 +112,35 @@ export default function MealModal({ onClose, onSaved }) {
                 </div>
 
                 {/* Dynamic List */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: "60vh", overflowY: "auto" }}>
+                <div style={{ display: "flex", flexDirection: "column", maxHeight: "60vh", overflowY: "auto" }}>
+                    {/* Шапка столбцов */}
+                    <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 100px 36px",
+                        gap: 10,
+                        alignItems: "end",
+                        borderBottom: "1px solid #f0f0f0"
+                    }}>
+                        <span style={{ ...labelStyle, marginBottom: 0 }}>Продукт</span>
+                        <span style={{ ...labelStyle, marginBottom: 0 }}>Вес (г)</span>
+                        <span style={{ ...labelStyle, marginBottom: 0, visibility: "hidden" }}>.</span>
+                    </div>
+
                     {rows.map((row, i) => (
                         <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 36px", gap: 10, alignItems: "end" }}>
                             <div>
-                                <label style={labelStyle}>Продукт</label>
                                 <select
                                     style={inputStyle}
                                     value={row.id}
                                     onChange={e => updateRow(i, "id", e.target.value)}
                                 >
                                     <option value="">— Выберите —</option>
-                                    {/* 🆕 Фильтруем уже выбранные продукты */}
                                     {getAvailableOptions(i).map(f => (
                                         <option key={f.id} value={f.id}>{f.name} (доступно: {f.weight_g}г)</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label style={labelStyle}>Вес (г)</label>
                                 <input style={inputStyle} type="number" min="0" value={row.weight}
                                     onChange={e => updateRow(i, "weight", e.target.value)} placeholder="50" />
                             </div>
