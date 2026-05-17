@@ -47,7 +47,7 @@ export default function HomePage() {
         }
     }, []);
 
-    useEffect(() => { loadMeals(); }, [loadMeals]);
+    useEffect(() => { loadMeals(todayStr); }, []);
 
     const toggleExpand = (id) => setExpandedId(prev => prev === id ? null : id);
 

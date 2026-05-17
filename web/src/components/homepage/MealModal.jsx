@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getFridge } from "../../api/foods";
+import { getFridge, getScalesWeight } from "../../api/foods"; // 👈 Добавлен импорт
 import { IconX, IconPlus, IconTrash } from "../Icons";
 
 export default function MealModal({ onClose, onSaved }) {
@@ -7,6 +7,7 @@ export default function MealModal({ onClose, onSaved }) {
     const [rows, setRows] = useState([{ id: "", weight: "", max: 0 }]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [fetchingWeightRow, setFetchingWeightRow] = useState(null); // 👈 Состояние загрузки по индексу строки
 
     useEffect(() => {
         let mounted = true;
@@ -46,6 +47,19 @@ export default function MealModal({ onClose, onSaved }) {
         return fridgeItems.filter(f => !takenIds.includes(f.id));
     };
 
+    // 👈 Новая функция получения веса с весов
+    const handleFetchWeight = async (rowIndex) => {
+        setFetchingWeightRow(rowIndex);
+        try {
+            const data = await getScalesWeight();
+            updateRow(rowIndex, "weight", data.weight_g.toString());
+        } catch (e) {
+            setError(`Ошибка весов: ${e.message}`);
+        } finally {
+            setFetchingWeightRow(null);
+        }
+    };
+
     const submit = async () => {
         setError("");
         const validRows = rows.filter(r => r.id && r.weight);
@@ -53,13 +67,11 @@ export default function MealModal({ onClose, onSaved }) {
             setError("Добавь хотя бы один продукт с весом");
             return;
         }
-
         const ids = validRows.map(r => Number(r.id));
         if (new Set(ids).size !== ids.length) {
             setError("Один и тот же продукт нельзя добавлять дважды");
             return;
         }
-
         for (const r of validRows) {
             const w = parseFloat(r.weight);
             if (isNaN(w) || w <= 0) {
@@ -72,7 +84,6 @@ export default function MealModal({ onClose, onSaved }) {
                 return;
             }
         }
-
         setSaving(true);
         try {
             onSaved(validRows.map(r => ({
@@ -105,18 +116,16 @@ export default function MealModal({ onClose, onSaved }) {
                 background: "#fff", borderRadius: 16, padding: "28px 28px 24px",
                 width: 480, maxWidth: "90vw", display: "flex", flexDirection: "column", gap: 0
             }}>
-                {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>Новый приём пищи</h2>
                     <button onClick={onClose} className="icon-button"><IconX /></button>
                 </div>
 
-                {/* Dynamic List */}
                 <div style={{ display: "flex", flexDirection: "column", maxHeight: "60vh", overflowY: "auto" }}>
                     {/* Шапка столбцов */}
                     <div style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 100px 36px",
+                        gridTemplateColumns: "1fr 130px 36px", // 👈 Увеличена ширина колонки веса
                         gap: 10,
                         alignItems: "end",
                         borderBottom: "1px solid #f0f0f0"
@@ -127,7 +136,7 @@ export default function MealModal({ onClose, onSaved }) {
                     </div>
 
                     {rows.map((row, i) => (
-                        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 36px", gap: 10, alignItems: "end" }}>
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 130px 36px", gap: 10, alignItems: "end" }}>
                             <div>
                                 <select
                                     style={inputStyle}
@@ -140,10 +149,29 @@ export default function MealModal({ onClose, onSaved }) {
                                     ))}
                                 </select>
                             </div>
-                            <div>
-                                <input style={inputStyle} type="number" min="0" value={row.weight}
-                                    onChange={e => updateRow(i, "weight", e.target.value)} placeholder="50" />
+
+                            {/* 👈 Блок веса с кнопкой весов */}
+                            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                                <input
+                                    style={{ ...inputStyle, flex: 1 }}
+                                    type="number"
+                                    min="0"
+                                    value={row.weight}
+                                    onChange={e => updateRow(i, "weight", e.target.value)}
+                                    placeholder="50"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleFetchWeight(i)}
+                                    disabled={fetchingWeightRow === i}
+                                    className="icon-button"
+                                    style={{ width: 36, height: 36 }}
+                                    title="Получить вес с весов"
+                                >
+                                    {fetchingWeightRow === i ? "⏳" : "⚖️"}
+                                </button>
                             </div>
+
                             <div>
                                 <label style={{ ...labelStyle, visibility: "hidden" }}>.</label>
                                 <button type="button" className="icon-button" style={{ width: 36, height: 36, marginBottom: 2 }}
@@ -158,10 +186,8 @@ export default function MealModal({ onClose, onSaved }) {
                 <button type="button" onClick={addRow} className="button" style={{ marginTop: 16, width: "100%", justifyContent: "center" }}>
                     <IconPlus /> Добавить продукт
                 </button>
-
                 {error && <p style={{ color: "#d44", fontSize: 12, margin: "12px 0 0" }}>{error}</p>}
 
-                {/* Actions */}
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
                     <button onClick={onClose} style={{
                         padding: "9px 18px", border: "1px solid #e0e0e0", borderRadius: 8,
