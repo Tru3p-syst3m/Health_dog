@@ -1,145 +1,110 @@
-import serial
 import threading
 import time
 import logging
-import os
 from typing import Optional
+import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
 logger = logging.getLogger(__name__)
 
-# Настройки по умолчанию (можно переопределить через .env)
-SERIAL_PORT = os.getenv("SCALES_SERIAL_PORT", "COM3" if os.name == "nt" else "/dev/ttyUSB0")
-SERIAL_BAUDRATE = int(os.getenv("SCALES_SERIAL_BAUDRATE", "115200"))
-SERIAL_TIMEOUT = float(os.getenv("SCALES_SERIAL_TIMEOUT", "5.0"))
-REQUEST_TIMEOUT = float(os.getenv("SCALES_REQUEST_TIMEOUT", "5.0"))
-
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+REQUEST_TIMEOUT = 5.0
 
 class ScalesService:
-    def __init__(
-        self,
-        port: str = SERIAL_PORT,
-        baudrate: int = SERIAL_BAUDRATE,
-        timeout: float = SERIAL_TIMEOUT,
-    ):
+    def __init__(self, broker: str = MQTT_BROKER, port: int = MQTT_PORT, timeout: float = REQUEST_TIMEOUT):
+        self._broker = broker
         self._port = port
-        self._baudrate = baudrate
         self._timeout = timeout
+        
+        # Потокобезопасные примитивы
         self._lock = threading.Lock()
-        self._ser: Optional[serial.Serial] = None
-        self._thread: Optional[threading.Thread] = None
-        self._running = False
+        self._response_event = threading.Event()
         self._latest_weight: Optional[float] = None
-        self._ready = threading.Event()
+        
+        self._connected = False
+        self._running = False
+
+        # Инициализация клиента v2 (совместим с Python 3.7+)
+        self._client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)
+        self._client.on_connect = self._on_connect
+        self._client.on_message = self._on_message
+        self._client.on_disconnect = self._on_disconnect
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties):
+        if reason_code == 0:
+            logger.info("✅ MQTT подключен к брокеру")
+            # Подписываемся на топик, куда ESP публикует вес
+            client.subscribe("data/server", qos=1)
+            self._connected = True
+        else:
+            logger.error(f"❌ Ошибка подключения MQTT, код: {reason_code}")
+
+    def _on_message(self, client, userdata, msg):
+        try:
+            payload = msg.payload.decode().strip()
+            weight = float(payload)
+            with self._lock:
+                self._latest_weight = weight
+                self._response_event.set()
+        except ValueError:
+            logger.warning(f"Некорректные данные от весов: {msg.payload}")
+        except Exception as e:
+            logger.error(f"Ошибка обработки MQTT сообщения: {e}")
+
+    def _on_disconnect(self, client, userdata, flags, reason_code):
+        self._connected = False
+        logger.info(f"MQTT отключен. Код: {reason_code}")
 
     def start(self):
-        """Запускает фоновый поток для работы с последовательным портом."""
-        if self._thread and self._thread.is_alive():
+        """Запускает фоновый MQTT клиент. Не блокирует FastAPI."""
+        if self._running:
             logger.warning("ScalesService уже запущен")
             return
-
+        
         self._running = True
-        self._thread = threading.Thread(
-            target=self._run_serial_loop, daemon=True, name="scales-serial-worker"
-        )
-        self._thread.start()
-
-        # Ждём успешного открытия порта
-        if not self._ready.wait(timeout=10.0):
-            raise RuntimeError(f"Не удалось открыть порт {self._port} за 10 сек.")
-        logger.info(f"Serial подключён: {self._port} @ {self._baudrate}")
-
-    def _run_serial_loop(self):
-        """Фоновый цикл: открываем порт и ждём запросов."""
         try:
-            # Открываем порт с флагами для надёжности
-            self._ser = serial.Serial(
-                port=self._port,
-                baudrate=self._baudrate,
-                timeout=self._timeout,
-                write_timeout=self._timeout,
-                exclusive=True,  # Блокируем доступ другим процессам
-            )
-            time.sleep(2)  # Даём весам время на инициализацию после подключения
-            self._ser.reset_input_buffer()
-            self._ser.reset_output_buffer()
-            self._ready.set()
+            self._client.connect(self._broker, self._port, keepalive=60)
+            # loop_start() запускает сетевой цикл в отдельном потоке
+            self._client.loop_start()
 
-            # Основной цикл: порт открыт, ждём запросов через get_weight()
-            while self._running:
-                time.sleep(0.1)  # Минимальная загрузка CPU
-
-        except serial.SerialException as e:
-            logger.error(f"❌ Ошибка открытия порта {self._port}: {e}")
-            self._ready.clear()
-        finally:
-            self._cleanup_serial()
-
-    def _cleanup_serial(self):
-        """Корректно закрывает порт."""
-        if self._ser and self._ser.is_open:
-            try:
-                self._ser.reset_input_buffer()
-                self._ser.reset_output_buffer()
-                self._ser.close()
-            except Exception as e:
-                logger.warning(f"Предупреждение при закрытии порта: {e}")
-            finally:
-                self._ser = None
-
-    def _send_command(self, command: str) -> Optional[float]:
-        """Отправляет команду и читает ответ. Вызывается ТОЛЬКО с захваченным _lock."""
-        if not self._ser or not self._ser.is_open:
-            raise ConnectionError("Порт не открыт")
-
-        # Формируем команду с \n (как в прошивке ESP32)
-        cmd = f"{command}\n".encode()
-        self._ser.write(cmd)
-        self._ser.flush()
-
-        # Читаем ответ до \n
-        response = self._ser.readline()
-        if not response:
-            raise TimeoutError("Нет ответа от весов")
-
-        # Парсим число
-        try:
-            return float(response.decode().strip())
-        except ValueError as e:
-            logger.warning(f"Некорректный ответ от весов: {response!r}")
-            raise ValueError(f"Не удалось распарсить вес: {response!r}") from e
+            # Ждём успешного подключения (макс 5 сек)
+            for _ in range(50):
+                if self._connected:
+                    break
+                time.sleep(0.1)
+            
+            if not self._connected:
+                raise RuntimeError("Не удалось подключиться к MQTT брокеру за 5 сек.")
+                
+        except Exception as e:
+            self._running = False
+            self._client.loop_stop()
+            raise RuntimeError(f"Ошибка запуска MQTT клиента: {e}") from e
 
     def get_weight(self) -> float:
-        """
-        Синхронный метод для вызова из FastAPI-роутов.
-        Отправляет 'get' и возвращает вес в граммах.
-        """
-        if not self._ready.is_set():
-            raise RuntimeError("ScalesService не запущен или порт не открыт")
+        """Синхронный запрос веса. Безопасен для вызова из FastAPI роутов."""
+        if not self._connected:
+            raise ConnectionError("MQTT клиент не подключен к брокеру")
 
+        self._response_event.clear()
         with self._lock:
-            try:
-                weight = self._send_command("get")
-                self._latest_weight = weight
-                logger.debug(f"Вес получен: {weight} г")
-                return weight
-            except (serial.SerialException, ConnectionError) as e:
-                logger.error(f"Ошибка связи с весами: {e}")
-                raise ConnectionError("Не удалось связаться с весами. Проверьте кабель и порт.") from e
-            except TimeoutError as e:
-                logger.warning("Таймаут при опросе весов")
-                raise TimeoutError("Весы не ответили за 5 сек.") from e
-            except Exception as e:
-                logger.error(f"Неожиданная ошибка: {e}")
-                raise RuntimeError(f"Внутренняя ошибка при чтении веса: {e}") from e
+            self._latest_weight = None
+            # Отправляем команду "get" в топик, на который подписана ESP
+            self._client.publish("data/esp", "get", qos=1)
+            
+
+        # Ждём ответа от потока-обработчика сообщений
+        if self._response_event.wait(timeout=self._timeout):
+            if self._latest_weight is not None:
+                return self._latest_weight
+                    
+        raise TimeoutError("Весы не ответили. Проверьте Wi-Fi, брокер и прошивку.")
 
     def stop(self):
-        """Останавливает фоновый поток и закрывает порт."""
+        """Корректно останавливает клиент и фоновый поток."""
         self._running = False
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5.0)
-        self._cleanup_serial()
+        if self._client:
+            self._client.loop_stop()
+            self._client.disconnect()
         logger.info("ScalesService остановлен")
-
-    def __del__(self):
-        """Гарантируем закрытие порта при удалении объекта."""
-        self.stop()
