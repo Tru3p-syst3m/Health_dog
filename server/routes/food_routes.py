@@ -1,12 +1,19 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 
 from config.database import get_session
 from models.food_models import Food, FoodCreate, FoodRead, FoodUpdate
 
 router = APIRouter(prefix="/foods", tags=["foods"])
 
+class IngredientInput(SQLModel):
+    food_id: int
+    weight_g: float
+
+class CompositeFoodCreate(SQLModel):
+    name: str
+    ingredients: List[IngredientInput]
 
 @router.post("/", response_model=FoodRead, status_code=201)
 def create_food(food: FoodCreate, session: Session = Depends(get_session)):
@@ -91,3 +98,45 @@ def delete_from_fridge(food_id: int, session: Session = Depends(get_session)):
     food.weight_g = None
     session.add(food)
     session.commit()
+
+@router.post("/composite", response_model=FoodRead, status_code=201)
+def create_composite_food(payload: CompositeFoodCreate, session: Session = Depends(get_session)):
+    if not payload.ingredients:
+        raise HTTPException(400, "Добавьте хотя бы один ингредиент")
+
+    total_weight = 0.0
+    total_cal = total_p = total_f = total_c = 0.0
+
+    for ing in payload.ingredients:
+        food = session.get(Food, ing.food_id)
+        if not food:
+            raise HTTPException(404, f"Продукт id={ing.food_id} не найден")
+        if ing.weight_g <= 0:
+            raise HTTPException(400, f"Вес для '{food.name}' должен быть больше 0")
+
+        w = ing.weight_g
+        total_weight += w
+        factor = w / 100.0
+        total_cal += (food.calories_per_100g or 0) * factor
+        total_p   += (food.protein_per_100g or 0) * factor
+        total_f   += (food.fat_per_100g or 0) * factor
+        total_c   += (food.carbs_per_100g or 0) * factor
+
+    if total_weight == 0:
+        raise HTTPException(400, "Общий вес блюда не может быть нулевым")
+
+    # Создаём обычный продукт с рассчитанными средними значениями
+    new_food = Food(
+        name=payload.name,
+        calories_per_100g=round(total_cal / total_weight * 100, 2),
+        protein_per_100g=round(total_p / total_weight * 100, 2),
+        fat_per_100g=round(total_f / total_weight * 100, 2),
+        carbs_per_100g=round(total_c / total_weight * 100, 2),
+        category="блюдо",
+        is_in_fridge=False, # По умолчанию не в холодильнике
+        weight_g=None
+    )
+    session.add(new_food)
+    session.commit()
+    session.refresh(new_food)
+    return new_food

@@ -5,6 +5,7 @@ import CategoryBadge from "../components/fridgepage/CategoryBadge";
 import FoodModal from "../components/fridgepage/FoodModal";
 import StatsPanel from "../components/fridgepage/StatsPanel";
 import Toolbar from "../components/fridgepage/Toolbar";
+import CompositeFoodModal from "../components/fridgepage/CompositeFoodModal";
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconRefresh } from "../components/Icons";
 import '../styles/buttons.css';
 
@@ -16,6 +17,7 @@ export default function FridgePage() {
     const [modal, setModal] = useState(null); // null | {} (new) | food (edit)
     const [toast, setToast] = useState("");
     const [deleting, setDeleting] = useState(null);
+    const [compositeModal, setCompositeModal] = useState(false);
 
     const showToast = (msg) => {
         setToast(msg);
@@ -44,6 +46,18 @@ export default function FridgePage() {
         setModal(null);
         showToast(isEdit ? "Продукт обновлён" : "Продукт добавлен");
     }
+
+    const handleCompositeSaved = async (createdFood, totalWeight) => {
+        setCompositeModal(false);
+        try {
+            // Сразу кладём новое блюдо в холодильник с рассчитанным весом
+            await addToFridge(createdFood.id, { weight_g: totalWeight });
+            showToast(`Блюдо "${createdFood.name}" создано и добавлено в холодильник`);
+            load();
+        } catch (e) {
+            showToast(`Создано, но ошибка добавления: ${e.message}`);
+        }
+    };
 
     async function handleDelete(id) {
         setDeleting(id);
@@ -93,6 +107,7 @@ export default function FridgePage() {
                 onSearch={setSearch}
                 onRefresh={load}
                 onAdd={() => setModal({})}
+                onAddComposite={() => setCompositeModal(true)}
             />
 
             {/* Table */}
@@ -163,15 +178,20 @@ export default function FridgePage() {
                 )}
             </div>
 
-            {
-                modal !== null && (
-                    <FoodModal
-                        food={Object.keys(modal).length ? modal : null}
-                        onClose={() => setModal(null)}
-                        onSaved={handleSaved}
-                    />
-                )
-            }
+            {modal !== null && (
+                <FoodModal
+                    food={Object.keys(modal).length ? modal : null}
+                    onClose={() => setModal(null)}
+                    onSaved={handleSaved}
+                />
+            )}
+
+            {compositeModal && (
+                <CompositeFoodModal
+                    onClose={() => setCompositeModal(false)}
+                    onSaved={handleCompositeSaved}
+                />
+            )}
 
             <Toast msg={toast} />
         </div >

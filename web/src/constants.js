@@ -1,4 +1,4 @@
-export const CATEGORIES = ["фрукт", "овощ", "мясо", "зерно", "молоко", "другое"];
+export const CATEGORIES = ["фрукт", "овощ", "мясо", "зерно", "молоко", "другое", "блюдо"];
 
 export const CAT_COLORS = {
     фрукт: { bg: "#FAEEDA", color: "#854F0B" },
@@ -7,6 +7,7 @@ export const CAT_COLORS = {
     зерно: { bg: "#EEEDFE", color: "#534AB7" },
     молоко: { bg: "#E6F1FB", color: "#185FA5" },
     другое: { bg: "#F1EFE8", color: "#5F5E5A" },
+    блюдо: { bg: "#F0E6D2", color: "#8B4513" },
 };
 
 export const EMPTY_FOOD_FORM = {

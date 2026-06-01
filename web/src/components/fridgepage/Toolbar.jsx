@@ -1,6 +1,6 @@
 import { IconSearch, IconRefresh, IconPlus } from "../Icons";
 
-export default function Toolbar({ search, onSearch, onRefresh, onAdd }) {
+export default function Toolbar({ search, onSearch, onRefresh, onAdd, onAddComposite }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
@@ -22,6 +22,11 @@ export default function Toolbar({ search, onSearch, onRefresh, onAdd }) {
 
             <button onClick={onRefresh} title="Обновить" className="icon-button">
                 <IconRefresh />
+            </button>
+
+
+            <button onClick={onAddComposite} className="button" style={{ background: "#185FA5" }}>
+                🥘 Составить блюдо
             </button>
 
             <button onClick={onAdd} className="button">
