@@ -21,53 +21,65 @@ def create_meal(payload: MealCreateInput, session: Session = Depends(get_session
     if not payload.items:
         raise HTTPException(400, "Список продуктов пуст")
 
-    food_records = []
     total_kcal = total_p = total_f = total_c = 0.0
     meal_items_to_create = []
 
     # 1. Валидация и расчёт нутриентов
-    for item in payload.items:
-        food = session.get(Food, item.fridge_id)
+    for item_input in payload.items:
+        food = session.get(Food, item_input.fridge_id)
         if not food:
-            raise HTTPException(404, f"Продукт id={item.fridge_id} не найден")
+            raise HTTPException(404, f"Продукт id={item_input.fridge_id} не найден")
         if not food.is_in_fridge:
             raise HTTPException(400, f"'{food.name}' отсутствует в холодильнике")
-        if food.weight_g is None or item.consumed_g > food.weight_g:
+        if food.weight_g is None or item_input.consumed_g > food.weight_g:
             raise HTTPException(400, f"Недостаточно '{food.name}'. Доступно: {food.weight_g}г")
 
-        factor = item.consumed_g / 100.0
+        factor = item_input.consumed_g / 100.0
         kcal = (food.calories_per_100g or 0) * factor
         p = (food.protein_per_100g or 0) * factor
         f = (food.fat_per_100g or 0) * factor
         c = (food.carbs_per_100g or 0) * factor
 
         total_kcal += kcal; total_p += p; total_f += f; total_c += c
+        is_composite = food.category == "блюдо"
 
-        meal_items_to_create.append(MealLogItem(
-            food_id=food.id,
-            weight_consumed_g=item.consumed_g,
+        # Создаём объект, но НЕ добавляем в session пока
+        meal_item = MealLogItem(
+            food_id=None if is_composite else food.id,
+            food_name=food.name,
+            weight_consumed_g=item_input.consumed_g,
             calories=round(kcal, 2),
             protein=round(p, 2),
             fat=round(f, 2),
             carbs=round(c, 2)
-        ))
+        )
+        meal_items_to_create.append(meal_item)
 
         # 2. Списываем вес с холодильника
-        food.weight_g -= item.consumed_g
+        food.weight_g -= item_input.consumed_g
         if food.weight_g <= 0:
-            food.weight_g = 0
-            food.is_in_fridge = False  # Автоматически убираем из холодильника
+            if is_composite:
+                session.delete(food)  # Помечаем на удаление (сработает при commit)
+            else:
+                food.weight_g = 0
+                food.is_in_fridge = False
 
-    # 3. Создаём запись приёма пищи
+    # 3. Создаём запись приёма пищи (родитель)
     meal_log = MealLog(
         total_calories=round(total_kcal, 2),
         total_protein=round(total_p, 2),
         total_fat=round(total_f, 2),
         total_carbs=round(total_c, 2),
-        items=meal_items_to_create
     )
     session.add(meal_log)
-    session.add_all(meal_items_to_create)
+    session.flush()  # ⚡ Получаем meal_log.id, но транзакция ещё открыта!
+
+    # 4. Привязываем ВСЕ элементы к приёму пищи и добавляем в сессию
+    for item in meal_items_to_create:
+        item.meal_log_id = meal_log.id
+        session.add(item)
+
+    # 5. Финализируем транзакцию одним вызовом
     session.commit()
     session.refresh(meal_log)
     return meal_log
@@ -85,18 +97,13 @@ def list_meals(
 
     meals = session.exec(query).all()
 
-    food_ids = {item.food_id for meal in meals for item in meal.items}
-    foods_cache = {}
-    if food_ids:
-        foods_cache = {f.id: f.name for f in session.exec(select(Food).where(Food.id.in_(food_ids))).all()}
-
     result = []
     for meal in meals:
         items_read = []
         for item in meal.items:
             items_read.append(MealLogItemRead(
                 id=item.id,
-                food_name=foods_cache.get(item.food_id, "Удалённый продукт"),
+                food_name=item.food_name or "Удалённый продукт",
                 weight_consumed_g=item.weight_consumed_g,
                 calories=item.calories,
                 protein=item.protein,

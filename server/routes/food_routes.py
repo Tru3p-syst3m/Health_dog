@@ -122,6 +122,13 @@ def create_composite_food(payload: CompositeFoodCreate, session: Session = Depen
         total_f   += (food.fat_per_100g or 0) * factor
         total_c   += (food.carbs_per_100g or 0) * factor
 
+        food.weight_g -= w
+        if food.weight_g <= 0:
+            food.weight_g = 0.0
+            food.is_in_fridge = False
+        session.add(food)
+        session.commit()
+
     if total_weight == 0:
         raise HTTPException(400, "Общий вес блюда не может быть нулевым")
 
@@ -133,8 +140,8 @@ def create_composite_food(payload: CompositeFoodCreate, session: Session = Depen
         fat_per_100g=round(total_f / total_weight * 100, 2),
         carbs_per_100g=round(total_c / total_weight * 100, 2),
         category="блюдо",
-        is_in_fridge=False, # По умолчанию не в холодильнике
-        weight_g=None
+        is_in_fridge=True, # По умолчанию не в холодильнике
+        weight_g=total_weight
     )
     session.add(new_food)
     session.commit()

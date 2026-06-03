@@ -6,7 +6,8 @@ class MealLogItem(SQLModel, table=True):
     __tablename__ = "meallogitem"
     id: Optional[int] = Field(default=None, primary_key=True)
     meal_log_id: int = Field(foreign_key="meallog.id")
-    food_id: int = Field(foreign_key="food.id")
+    food_id: Optional[int] = Field(default=None, foreign_key="food.id", nullable=True)
+    food_name: str = Field(default="")
     weight_consumed_g: float
     # Фиксируем расчет на момент приема. Если обновишь данные в Food, история не сломается.
     calories: float = Field(default=0.0)

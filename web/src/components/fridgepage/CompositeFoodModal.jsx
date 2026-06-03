@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { getFridge, createCompositeFood } from "../../api/foods";
+import { getFridge, createCompositeFood, getScalesWeight } from "../../api/foods";
 import { IconX, IconPlus, IconTrash } from "../Icons";
 
 export default function CompositeFoodModal({ onClose, onSaved }) {
@@ -8,6 +8,7 @@ export default function CompositeFoodModal({ onClose, onSaved }) {
     const [fridgeItems, setFridgeItems] = useState([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [fetchingWeightRow, setFetchingWeightRow] = useState(null);
 
     useEffect(() => {
         let mounted = true;
@@ -24,6 +25,18 @@ export default function CompositeFoodModal({ onClose, onSaved }) {
     const availableForRow = (currentIdx) => {
         const takenIds = rows.map((r, idx) => (idx !== currentIdx && r.food_id) ? Number(r.food_id) : null).filter(Boolean);
         return fridgeItems.filter(f => !takenIds.includes(f.id));
+    };
+
+    const handleFetchWeight = async (rowIndex) => {
+        setFetchingWeightRow(rowIndex);
+        try {
+            const data = await getScalesWeight();
+            updateRow(rowIndex, "weight", data.weight_g.toString());
+        } catch (e) {
+            setError(`Ошибка весов: ${e.message}`);
+        } finally {
+            setFetchingWeightRow(null);
+        }
     };
 
     const preview = useMemo(() => {
@@ -82,7 +95,7 @@ export default function CompositeFoodModal({ onClose, onSaved }) {
                 </div>
 
                 <div style={{ maxHeight: "40vh", overflowY: "auto", marginBottom: 12 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 36px", gap: 10, alignItems: "end", borderBottom: "1px solid #f0f0f0", paddingBottom: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 36px", gap: 10, alignItems: "end", borderBottom: "1px solid #f0f0f0", paddingBottom: 8 }}>
                         <span style={labelStyle}>Ингредиент</span>
                         <span style={labelStyle}>Вес (г)</span>
                         <span style={{ ...labelStyle, visibility: "hidden" }}>.</span>
@@ -95,7 +108,19 @@ export default function CompositeFoodModal({ onClose, onSaved }) {
                                     <option key={f.id} value={f.id}>{f.name} (доступно: {f.weight_g}г)</option>
                                 ))}
                             </select>
-                            <input style={inputStyle} type="number" min="0" value={row.weight} onChange={e => updateRow(i, "weight", e.target.value)} placeholder="100" />
+                            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                                <input style={{ ...inputStyle, flex: 1 }} type="number" min="0" value={row.weight} onChange={e => updateRow(i, "weight", e.target.value)} placeholder="100" />
+                                <button
+                                    type="button"
+                                    onClick={() => handleFetchWeight(i)}
+                                    disabled={fetchingWeightRow === i}
+                                    className="icon-button"
+                                    style={{ width: 36, height: 36, marginBottom: 2 }}
+                                    title="Получить вес с весов"
+                                >
+                                    {fetchingWeightRow === i ? "⏳" : "⚖️"}
+                                </button>
+                            </div>
                             <button type="button" className="icon-button" style={{ width: 36, height: 36, marginBottom: 2 }} onClick={() => removeRow(i)} disabled={rows.length <= 1}><IconTrash /></button>
                         </div>
                     ))}

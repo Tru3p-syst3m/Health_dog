@@ -50,8 +50,6 @@ export default function FridgePage() {
     const handleCompositeSaved = async (createdFood, totalWeight) => {
         setCompositeModal(false);
         try {
-            // Сразу кладём новое блюдо в холодильник с рассчитанным весом
-            await addToFridge(createdFood.id, { weight_g: totalWeight });
             showToast(`Блюдо "${createdFood.name}" создано и добавлено в холодильник`);
             load();
         } catch (e) {
