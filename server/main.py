@@ -28,7 +28,7 @@ app.include_router(meal_router)
 app.include_router(scales_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
